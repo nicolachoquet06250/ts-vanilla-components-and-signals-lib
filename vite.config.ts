@@ -1,5 +1,5 @@
 import {defineConfig} from "vite";
-// import autoComponentsPlugin from "./src/plugins/vite-plugin-autocomponent";
+import {autoComponentsPlugin} from "./src/plugins/vite-plugin-autocomponent";
 
 export default defineConfig({
     server: {
@@ -11,9 +11,5 @@ export default defineConfig({
             input: "src/entry-client.ts",
         },
     },
-    // plugins: [
-    //     autoComponentsPlugin({
-    //         componentsModule: './components', // chemin vers ton fichier qui exporte defineComponent
-    //     }),
-    // ],
-})
+    plugins: [autoComponentsPlugin()],
+});
