@@ -2,6 +2,10 @@ name: npm-package-deploy.yml
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/lib/**'
+      - 'src/plugins/**'
+      - 'src/index.ts'
 jobs:
   pipeline:
     runs-on: ubuntu-latest
