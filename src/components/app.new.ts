@@ -13,6 +13,8 @@ export function App({client = true} : Props) {
     const test = signal<string[]>([]);
     const newValue = signal('');
 
+    setTimeout(() => newValue.set('test'), 5000);
+
     const handleSubmit = (e: SubmitEvent) => {
         e.preventDefault();
         test.set(t => [...t, newValue()]);

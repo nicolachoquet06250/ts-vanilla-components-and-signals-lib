@@ -219,6 +219,12 @@ export function html(strings: TemplateStringsArray, ...values: any[]): () => VNo
                                 if (el.value !== next) {
                                     el.value = next;
                                 }
+                                // Keep the DOM attribute "value" in sync as requested
+                                const attrVal = el.getAttribute('value');
+                                if (attrVal !== next) {
+                                    // set the attribute to reflect the current signal value
+                                    el.setAttribute('value', next);
+                                }
                                 return;
                             }
                         }
