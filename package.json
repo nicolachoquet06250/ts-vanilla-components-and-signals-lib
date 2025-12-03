@@ -8,7 +8,7 @@
     "server": "node src/server.js",
     "build": "tsc && vite build",
     "build:lib": "tsc -p tsconfig.build.json && node scripts/fix-extensions.js",
-    "pack": "npm run build:lib && npm pack",
+    "pack": "npm pack",
     "preview": "vite preview",
     "prepublishOnly": "npm run build:lib",
     "publish:public": "npm run build:lib && npm publish --access public"
