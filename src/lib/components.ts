@@ -206,6 +206,7 @@ export function html(strings: TemplateStringsArray, ...values: any[]): () => VNo
                         return v;
                     };
 
+                    // reactive sync from source -> element
                     const stop = watchEffect(() => {
                         const raw = resolveAttr(expr);
                         const name = attrName.toLowerCase();
@@ -243,8 +244,41 @@ export function html(strings: TemplateStringsArray, ...values: any[]): () => VNo
                         }
                     });
 
+                    // If binding a Signal to value=..., attach input listener to update the signal
+                    let detachInput: (() => void) | undefined;
+                    if (
+                        attrName.toLowerCase() === 'value'
+                        && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)
+                        && typeof expr === 'function'
+                        && (expr as any).__isSignal === true
+                    ) {
+                        // determine coercion based on current value type
+                        const current = (() => {
+                            try { return resolveAttr(expr); } catch { return undefined; }
+                        })();
+                        const coerce = typeof current === 'number'
+                            ? (v: string) => {
+                                const n = v.trim() === '' ? NaN : Number(v);
+                                return Number.isNaN(n) ? (expr as any).value : n;
+                            }
+                            : (v: string) => v;
+
+                        const updateSignalFirst = (e: Event) => {
+                            // update signal before any other oninput handlers
+                            try {
+                                const v = (e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
+                                (expr as any).set ? (expr as any).set(coerce(v)) : (expr as any)(coerce(v));
+                            } catch {}
+                        };
+
+                        // Use capture to ensure this runs before bubbling listeners potentially attached elsewhere
+                        el.addEventListener('input', updateSignalFirst, { capture: true });
+                        detachInput = () => el.removeEventListener('input', updateSignalFirst, { capture: true } as any);
+                    }
+
                     return () => {
                         stop();
+                        if (detachInput) detachInput();
                     };
                 });
             }

@@ -217,6 +217,13 @@ export function signal<
     // Attache dynamiquement les méthodes type Array si la valeur est un tableau
     tryAttachArrayMethods(() => fn.value, fn);
 
+    // Branding interne pour distinguer un signal d'autres valeurs/computed
+    // Non-énumérable pour ne pas polluer l'API publique
+    Object.defineProperty(fn, '__isSignal', {
+        value: true,
+        enumerable: false,
+    });
+
     return fn as R;
 }
 
@@ -272,6 +279,12 @@ export function computed<
         // Attache dynamiquement les méthodes type Array si la valeur est un tableau
         tryAttachArrayMethods(read, fn);
 
+        // Branding interne pour distinguer des signals
+        Object.defineProperty(fn as any, '__isComputed', {
+            value: 'readonly',
+            enumerable: false,
+        });
+
         return fn as unknown as R;
     }
 
@@ -296,6 +309,12 @@ export function computed<
 
     // Attache dynamiquement les méthodes type Array si la valeur est un tableau
     tryAttachArrayMethods(read, fn);
+
+    // Branding interne pour distinguer des signals
+    Object.defineProperty(fn as any, '__isComputed', {
+        value: 'writable',
+        enumerable: false,
+    });
 
     return fn as unknown as R;
 }

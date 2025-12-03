@@ -18,9 +18,6 @@ export function App({client = true} : Props) {
         test.set(t => [...t, newValue()]);
         newValue.set('');
     }
-    const handleInput = (e: InputEvent) => {
-        newValue.set((e.target as HTMLInputElement).value);
-    }
 
     return html`<div>
         <a href="https://vite.dev">
@@ -41,7 +38,8 @@ export function App({client = true} : Props) {
         
         <form onsubmit="${handleSubmit}">
             <div style="margin-bottom: 10px;">
-                <input type="text" value="${newValue}" oninput="${handleInput}"/>
+                <!-- Mise à jour automatique de newValue à l'input -->
+                <input type="text" value="${newValue}" />
             </div>
             
             <button type="submit">Créer un item</button>
