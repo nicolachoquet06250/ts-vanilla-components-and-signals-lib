@@ -5,6 +5,7 @@ export interface Signal<T> {
     value: T;
     set(value: T | ((prev: T) => T)): void;
     update(updater: (prev: T) => T): void;
+    reset(): void;
 }
 
 export interface CallableComputedReadonly<T> {
@@ -213,6 +214,7 @@ export function signal<
 
     fn.set = write;
     fn.update = updater => write(updater);
+    fn.reset = () => write(initial);
 
     // Attache dynamiquement les méthodes type Array si la valeur est un tableau
     tryAttachArrayMethods(() => fn.value, fn);
