@@ -127,7 +127,6 @@ export function html(strings: TemplateStringsArray, ...values: any[]): () => VNo
 
         let expr = values[i];
 
-        console.log('expr', typeof expr === 'function' && expr.toString().includes('return view;'), expr.name, expr);
         if (typeof expr === 'function' && expr.toString().includes('return view;')) {
             expr = expr();
         }
