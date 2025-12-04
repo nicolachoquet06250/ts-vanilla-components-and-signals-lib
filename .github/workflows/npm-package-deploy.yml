@@ -6,6 +6,7 @@ on:
       - 'src/lib/**'
       - 'src/plugins/**'
       - 'src/index.ts'
+      - 'package.json'
 jobs:
   pipeline:
     runs-on: ubuntu-latest
