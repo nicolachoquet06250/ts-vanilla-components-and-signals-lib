@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import ts from 'typescript';
+import {opendir} from "node:fs/promises";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const srcDir = path.join(repoRoot, 'src', 'components');
 const goRoot = path.join(repoRoot, 'go');
+const assetsDir = path.join(goRoot, 'assets');
 const ssrDir = path.join(goRoot, 'ssr');
 const outDir = path.join(ssrDir, 'components');
 
@@ -42,6 +44,7 @@ function scaffoldGoProject({ force = false } = {}) {
   ensureDir(goRoot);
   ensureDir(ssrDir);
   ensureDir(outDir);
+  ensureDir(assetsDir);
 
   // go.mod for SSR module
   const gomodPath = path.join(ssrDir, 'go.mod');
@@ -237,66 +240,75 @@ var attrRegex = regexp.MustCompile(\`([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*["']?$\`
 
 // HTML est l'équivalent de la tag function \`html\` côté TypeScript,
 // mais en Go on la représente comme : literals + interpolations.
-func HTML(literals []string, values ...any) View {
-	return func() VNode {
-		var out strings.Builder
+func HTML(literals []string, values ...any) VNode {
+	//return func() VNode {
+	var out strings.Builder
 
-		for i, s := range literals {
-			out.WriteString(s)
+	for i, s := range literals {
+		out.WriteString(s)
 
-			if i >= len(values) {
-				continue
+		if i >= len(values) {
+			continue
+		}
+
+		expr := values[i]
+
+		// View / VNode direct
+		if isView(expr) {
+			vnode := asView(expr)()
+			out.WriteString(vnode.HTML)
+			continue
+		}
+		if isVNode(expr) {
+			vnode := asVNode(expr)
+			out.WriteString(vnode.HTML)
+			continue
+		}
+
+		// Détection si on est dans un attribut (SSR)
+		current := out.String()
+		inTag := strings.LastIndex(current, "<") > strings.LastIndex(current, ">")
+		inAttribute := false
+		var attrName string
+
+		if inTag {
+			if m := attrRegex.FindStringSubmatch(current); m != nil {
+				attrName = m[1]
+				inAttribute = true
 			}
+		}
 
-			expr := values[i]
-
-			// View / VNode direct
-			if isView(expr) {
-				vnode := asView(expr)()
-				out.WriteString(vnode.HTML)
-				continue
-			}
-			if isVNode(expr) {
-				vnode := asVNode(expr)
-				out.WriteString(vnode.HTML)
-				continue
-			}
-
-			// Détection si on est dans un attribut (SSR)
-			current := out.String()
-			inTag := strings.LastIndex(current, "<") > strings.LastIndex(current, ">")
-			inAttribute := false
-
-			if inTag {
-				if m := attrRegex.FindStringSubmatch(current); m != nil {
-					// attrName := m[1] // pas utilisé en SSR, mais on peut le garder si besoin
-					_ = m[1]
-					inAttribute = true
-				}
-			}
-
-			if inAttribute {
-				// Attribut "normal" en SSR : on imprime simplement la valeur résolue
+		if inAttribute {
+			// Gestion des attributs en SSR pour correspondre à l'algo TypeScript
+			// - Event handlers (onXxx): écrire un id stable "ev-part-{n}" et incrémenter
+			// - Attributs normaux: imprimer la valeur résolue et incrémenter le compteur (même si l'id n'est pas utilisé en SSR)
+			if strings.HasPrefix(strings.ToLower(attrName), "on") {
+				id := fmt.Sprintf("ev-part-%d", partID)
+				partID++
+				out.WriteString(id)
+			} else {
+				partID++
 				scalar := resolveScalar(expr)
 				out.WriteString(scalar)
-				continue
 			}
-
-			// Texte (interpolation "normale") :
-			// en SSR on wrappe dans les markers <!--s...--> ... <!--e...-->
-			text := resolveScalar(expr)
-			marker := fmt.Sprintf("text-part-%d", partID)
-			partID++
-			out.WriteString("<!--s" + marker + "-->")
-			out.WriteString(text)
-			out.WriteString("<!--e" + marker + "-->")
+			continue
 		}
 
-		return VNode{
-			HTML:   out.String(),
-			Setups: nil, // en SSR Go on ne gère pas les setups DOM
-		}
+		// Texte (interpolation "normale") :
+		// en SSR on wrappe dans les markers <!--s...--> ... <!--e...-->
+		text := resolveScalar(expr)
+		marker := fmt.Sprintf("text-part-%d", partID)
+		partID++
+		out.WriteString("<!--s" + marker + "-->")
+		out.WriteString(text)
+		out.WriteString("<!--e" + marker + "-->")
 	}
+
+	return VNode{
+		HTML:   out.String(),
+		Setups: nil, // en SSR Go on ne gère pas les setups DOM
+	}
+	//}
 }
 
 // ---------- SSR : RenderToString (HTML complet + markers) ----------
@@ -313,6 +325,8 @@ func RenderToString(compOrView any, props any) string {
 		view = v
 	case Component[any]:
 		view = v(props)
+	case VNode:
+		view = func() VNode { return v }
 	default:
 		panic("RenderToString: expected View or Component")
 	}
@@ -432,10 +446,12 @@ func TestRenderComponentToString_EventAttrPlaceholder(t *testing.T) {
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	ssr "signals-ssr"
 	"signals-ssr/components"
@@ -449,7 +465,11 @@ type Manifest map[string]struct {
 	CSS     []string \`json:"css"\`
 }
 
+var port = flag.Int("port", 0, "port du server")
+
 func main() {
+	flag.Parse()
+
 	mux := http.NewServeMux()
 
 	var manifest, err = os.ReadFile("../dist/.vite/manifest.json")
@@ -487,7 +507,7 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 		// App() est générée par scripts/ts2go.js dans signals-ssr/components
-		view := components.App()
+		view := components.AppWithProps(components.AppProps{Client: false})
 		appHTML := ssr.RenderToString(view, nil)
 
 		css := func() string {
@@ -527,7 +547,7 @@ func main() {
 	//static := http.StripPrefix("/static/", http.FileServer(http.Dir("../public")))
 	//mux.Handle("/static/", static)
 
-	addr := ":8080"
+	addr := ":" + strconv.Itoa(*port)
 	log.Printf("listening on %s (net/http ServeMux)", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)
@@ -696,6 +716,10 @@ function emitGo(name, parts, values, srcPath, sf, propsInfo, assetMap = {}, init
   const imports = `package ${pkg}\n\nimport ssr \"signals-ssr\"\n`;
   const partsArr = '[]string{' + parts.map(p => goStringLiteral(p)).join(', ') + '}';
   const ctx = buildCtx(name, propsInfo, sf, assetMap, initials);
+  // Mark that we are at top-level interpolations; collect component pre-executions
+  ctx.__compStmts = [];
+  ctx.__compSeq = 0;
+  ctx.__topLevel = true;
   const valsArr = values.map(v => toGoValue(v, sf, ctx)).join(', ');
 
   const code = [];
@@ -733,6 +757,12 @@ function emitGo(name, parts, values, srcPath, sf, propsInfo, assetMap = {}, init
 
   // Main function taking props
   code.push(`func ${name}WithProps(props ${ctx.propsType}) ssr.View {`);
+  // Insert pre-execution of nested components to ensure their IDs are incremented first
+  if (ctx.__compStmts && ctx.__compStmts.length) {
+    for (const st of ctx.__compStmts) {
+      code.push(`\n\t${st}`);
+    }
+  }
   code.push(`\n\treturn ssr.HTML(${partsArr}${values.length ? ', ' + valsArr : ''})`);
   code.push(`\n}\n`);
   return code.join('');
@@ -745,6 +775,15 @@ function emitGo(name, parts, values, srcPath, sf, propsInfo, assetMap = {}, init
 function toGoValue(expr, sf, ctx = undefined) {
   const isPascal = (n) => /^[A-Z][A-Za-z0-9_]*$/.test(n || '');
   const pascal = (s) => (s||'').replace(/^[a-z]/, c => c.toUpperCase()).replace(/[_-](\w)/g, (_,c)=>c.toUpperCase());
+  const preExecComponent = (callCode) => {
+    // Only pre-exec at top-level slots to avoid scoping issues inside IIFEs/loops
+    if (ctx && ctx.__topLevel) {
+      const varName = `__c${ctx.__compSeq++}`;
+      ctx.__compStmts.push(`${varName} := ${callCode}`);
+      return varName;
+    }
+    return callCode;
+  };
   const unwrap = (e) => {
     while (
       e && (
@@ -779,8 +818,9 @@ function toGoValue(expr, sf, ctx = undefined) {
     }
     // Handle ternary expressions: cond ? a : b → IIFE with if/else in Go
     if (ts.isConditionalExpression(expr)) {
-      const whenTrueGo = toGoValue(expr.whenTrue, sf, ctx);
-      const whenFalseGo = toGoValue(expr.whenFalse, sf, ctx);
+      const subCtx = ctx ? { ...ctx, __topLevel: false } : ctx;
+      const whenTrueGo = toGoValue(expr.whenTrue, sf, subCtx);
+      const whenFalseGo = toGoValue(expr.whenFalse, sf, subCtx);
       // We cannot safely emit the TS condition as Go; use a placeholder and keep structure.
       return `(func() any { if false { return ${whenTrueGo} } else { return ${whenFalseGo} } })()`;
     }
@@ -796,7 +836,7 @@ function toGoValue(expr, sf, ctx = undefined) {
           if (ts.isIdentifier(p0.name)) loopVar = p0.name.text;
         }
         // Build a child context with the loop variable registered as a local symbol
-        const childCtx = { ...ctx, locals: new Set([...(ctx?.locals || []), loopVar]) };
+        const childCtx = { ...ctx, locals: new Set([...(ctx?.locals || []), loopVar]), __topLevel: false };
         // Determine body expression of the mapper
         let bodyExpr = undefined;
         if (ts.isBlock(mapper.body)) {
@@ -829,14 +869,14 @@ function toGoValue(expr, sf, ctx = undefined) {
           const first = expr.arguments?.[0];
           if (first && ts.isObjectLiteralExpression(first)) {
             const lit = toGoPropsLiteral(name, first, sf, ctx);
-            return `${name}WithProps(${lit})`;
+            return preExecComponent(`${name}WithProps(${lit})`);
           }
-          return `${name}()`;
+          return preExecComponent(`${name}()`);
         }
       }
       if (ts.isPropertyAccessExpression(callee)) {
         const id = callee.name && callee.name.text;
-        if (isPascal(id)) return `${id}()`;
+        if (isPascal(id)) return preExecComponent(`${id}()`);
       }
     }
     if (ts.isIdentifier(expr)) {
@@ -845,7 +885,7 @@ function toGoValue(expr, sf, ctx = undefined) {
       if (ctx && ctx.assetIdents && ctx.assetIdents.has && ctx.assetIdents.has(name)) {
         return name;
       }
-      if (isPascal(name)) return `${name}()`;
+      if (isPascal(name)) return preExecComponent(`${name}()`);
     }
   } catch {}
   const src = expr && typeof expr.getText === 'function' ? expr.getText(sf) : String(expr);
@@ -1030,7 +1070,7 @@ function toGoPropsLiteral(name, objLit, sf, ctx) {
   return `${name}Props{ ${fields.join(', ')} }`;
 }
 
-function run() {
+async function run() {
   // Optionally scaffold the Go project first
   if (FLAG_SCAFFOLD) {
     scaffoldGoProject({ force: FLAG_FORCE });
@@ -1042,7 +1082,7 @@ function run() {
   }
   const files = fs
     .readdirSync(srcDir)
-    .filter(f => f.endsWith('.ts') || f.endsWith('.tsx'))
+    .filter(f => f.endsWith('.ts'))
     // ensure that *.new.ts(x) are processed last so they override older outputs
     .sort((a, b) => {
       const anew = a.includes('.new.');
@@ -1053,7 +1093,7 @@ function run() {
   for (const f of files) {
     const full = path.join(srcDir, f);
     const code = fs.readFileSync(full, 'utf8');
-    const sf = ts.createSourceFile(full, code, ts.ScriptTarget.Latest, true, full.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    const sf = ts.createSourceFile(full, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     const outs = generateForFile(sf);
     if (!outs.length) continue;
     for (const o of outs) {
@@ -1061,6 +1101,14 @@ function run() {
       fs.writeFileSync(outFile, o.code, 'utf8');
       console.log('Generated', path.relative(repoRoot, outFile));
     }
+  }
+
+  console.log('');
+
+  const dir = await opendir(__dirname + '/../dist/assets');
+  for await (const entry of dir) {
+      fs.copyFileSync(path.join(__dirname, '../dist/assets', entry.name), path.join(assetsDir, entry.name));
+      console.log('Copied from', path.join(__dirname, '../dist/assets', entry.name), 'to', path.join(assetsDir, entry.name));
   }
 }
 
