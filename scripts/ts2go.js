@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 // Simple TS components → Go Views generator
 // Limitations: expressions are emitted as their source text strings; manual adaptation likely needed.
 // It extracts html`...` tagged templates from exported functions or consts under src/components.

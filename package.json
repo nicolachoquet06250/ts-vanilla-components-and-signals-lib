@@ -1,7 +1,7 @@
 {
   "name": "nc-signals-components",
   "private": false,
-  "version": "3.5.0",
+  "version": "3.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -34,6 +34,9 @@
     "@types/express": "^5.0.5",
     "express": "^5.1.0"
   },
+  "bin": {
+    "ts2go": "scripts/ts2go.js"
+  },
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -53,6 +56,7 @@
   },
   "files": [
     "dist",
+    "scripts/ts2go.js",
     "README.md",
     "DOCUMENTATION.md",
     "LICENSE"
