@@ -454,4 +454,8 @@ Pour un serveur HTTP Go, encapsulez `RenderToString(Component(), nil)` dans un h
 
 ---
 
+Lien de l'exemple : https://github.com/nicolachoquet06250/exemple-nc-signals-components
+
+---
+
 Bon développement avec `nc-signals-components` !
