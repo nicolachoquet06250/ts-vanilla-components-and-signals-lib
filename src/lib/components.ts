@@ -138,30 +138,10 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
     type TitleSegment = string | (() => string);
     let titleCollector: { segments: TitleSegment[] } | null = null;
 
-    // Pending injection to append right after the closing quote of the current attribute
-    // Used in SSR to add robust data markers that won't be stripped (e.g., when on* attrs are removed)
-    let pendingAfterAttr: string | null = null;
-
     for (let i = 0; i < strings.length; i++) {
-        let chunk = strings[i];
-
-        // If we need to inject something immediately after the attribute's closing quote,
-        // we rewrite the next static chunk accordingly.
-        if (pendingAfterAttr) {
-            const first = chunk.charAt(0);
-            if (first === '"' || first === '\'') {
-                // Insert right after the closing quote
-                chunk = first + pendingAfterAttr + chunk.slice(1);
-            } else {
-                // Fallback: just prepend (covers unquoted or unusual formatting)
-                chunk = pendingAfterAttr + chunk;
-            }
-            pendingAfterAttr = null;
-        }
-
-        rawOut += chunk;
-        out += (renderMode === 'client') ? transformHeadTags(chunk) : chunk;
-        const prev = chunk;
+        const prev = strings[i];
+        rawOut += prev;
+        out += (renderMode === 'client') ? transformHeadTags(prev) : prev;
 
         if (i >= values.length) continue;
 
@@ -200,25 +180,10 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
                 // pour que le DOM SSR et le DOM client aient la même valeur d'attribut.
                 out += id;
 
-                // In SSR, also inject robust data-* markers that are unlikely to be stripped by
-                // downstream tooling. These markers allow hydration even if inline on* attributes
-                // are removed or altered in the consuming app.
-                if (renderMode === 'server') {
-                    const evName = attrName.slice(2).toLowerCase();
-                    // Defer insertion right after the attribute's closing quote
-                    pendingAfterAttr = ` data-s-eid="${id}" data-s-ename="${evName}"`;
-                }
-
                 if (renderMode === 'client') {
                     attrParts.push(root => {
-                        // 1) Primary: data markers (work even if on* attributes are stripped by SSR pipeline)
-                        let el = root.querySelector<HTMLElement>(`[data-s-eid="${id}"]`);
-                        
-                        // 2) Exact match on inline on* placeholder
-                        if (!el) {
-                            const selector = `[${attrName}="${id}"]`;
-                            el = root.querySelector<HTMLElement>(selector) as any;
-                        }
+                        const selector = `[${attrName}="${id}"]`;
+                        let el = root.querySelector<HTMLElement>(selector) as any;
 
                         // Fallback hydratation : si l'attribut placeholder n'existe pas (strippé/modifié côté SSR),
                         // on se rabat sur le n-ième élément possédant cet attribut, par ordre d'apparition.
@@ -241,9 +206,6 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
                         el.addEventListener(eventName, handler);
                         // Nettoyage de l'attribut inline pour éviter tout conflit/erreur navigateur
                         try { el.removeAttribute(attrName); } catch {}
-                        // Remove data markers used for hydration
-                        try { el.removeAttribute('data-s-eid'); } catch {}
-                        try { el.removeAttribute('data-s-ename'); } catch {}
 
                         return () => {
                             el.removeEventListener(eventName, handler);
