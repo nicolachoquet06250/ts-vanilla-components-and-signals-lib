@@ -222,16 +222,30 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
                             el = root.querySelector<HTMLElement>(selector) as any;
                         }
 
-                        // Fallback hydratation : si l'attribut placeholder n'existe pas (strippé/modifié côté SSR),
-                        // on se rabat sur le n-ième élément possédant cet attribut, par ordre d'apparition.
+                        // 3) Fallback hydratation : si l'attribut placeholder/id ne correspond pas (mismatch d'ids entre SSR/CSR),
+                        // on se rabat sur le n-ième élément possédant le marqueur data-s-eid-<event>, puis sur [on*], par ordre d'apparition.
                         if (!el) {
-                            const all = root.querySelectorAll<HTMLElement>(`[${attrName}]`);
                             const mapKey = '__eventIdxMap__';
                             const idxMap: Map<string, number> = ((root as any)[mapKey] ||= new Map<string, number>());
-                            const nextIdx = idxMap.get(attrName) || 0;
-                            if (nextIdx < all.length) {
-                                el = all[nextIdx] as any;
-                                idxMap.set(attrName, nextIdx + 1);
+
+                            // 3a) Try by data markers count
+                            const dataKey = `data:${eventName}`;
+                            const dataAll = root.querySelectorAll<HTMLElement>(`[data-s-eid-${eventName}]`);
+                            const nextDataIdx = idxMap.get(dataKey) || 0;
+                            if (nextDataIdx < dataAll.length) {
+                                el = dataAll[nextDataIdx] as any;
+                                idxMap.set(dataKey, nextDataIdx + 1);
+                            }
+
+                            // 3b) Else by on* attribute count
+                            if (!el) {
+                                const onAll = root.querySelectorAll<HTMLElement>(`[${attrName}]`);
+                                const onKey = attrName;
+                                const nextOnIdx = idxMap.get(onKey) || 0;
+                                if (nextOnIdx < onAll.length) {
+                                    el = onAll[nextOnIdx] as any;
+                                    idxMap.set(onKey, nextOnIdx + 1);
+                                }
                             }
                         }
 
