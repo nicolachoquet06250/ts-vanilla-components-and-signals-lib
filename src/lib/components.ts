@@ -183,14 +183,29 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
                 if (renderMode === 'client') {
                     attrParts.push(root => {
                         const selector = `[${attrName}="${id}"]`;
-                        const el = root.querySelector<HTMLElement>(selector);
+                        let el = root.querySelector<HTMLElement>(selector) as any;
+
+                        // Fallback hydratation : si l'attribut placeholder n'existe pas (strippé/modifié côté SSR),
+                        // on se rabat sur le n-ième élément possédant cet attribut, par ordre d'apparition.
+                        if (!el) {
+                            const all = root.querySelectorAll<HTMLElement>(`[${attrName}]`);
+                            const mapKey = '__eventIdxMap__';
+                            const idxMap: Map<string, number> = ((root as any)[mapKey] ||= new Map<string, number>());
+                            const nextIdx = idxMap.get(attrName) || 0;
+                            if (nextIdx < all.length) {
+                                el = all[nextIdx] as any;
+                                idxMap.set(attrName, nextIdx + 1);
+                            }
+                        }
+
                         if (!el) return;
 
                         const eventName = attrName.slice(2).toLowerCase(); // onClick/onclick -> click, onContextMenu -> contextmenu
                         const handler = expr as (ev: Event) => void;
 
                         el.addEventListener(eventName, handler);
-                        el.removeAttribute(attrName); // on nettoie onclick="..."
+                        // Nettoyage de l'attribut inline pour éviter tout conflit/erreur navigateur
+                        try { el.removeAttribute(attrName); } catch {}
 
                         return () => {
                             el.removeEventListener(eventName, handler);
