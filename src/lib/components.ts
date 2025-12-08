@@ -169,11 +169,12 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
         const inAttribute = inTag && !!attrMatch;
 
         if (inAttribute) {
-            const attrMatch = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*["']?$/.exec(out)!;
             const attrName = attrMatch[1]; // ex: onclick, oncontextmenu, class, src, ...
 
             // --- Event : onXxx="${() => ...}" ---
-            if (attrName.startsWith('on') && typeof expr === 'function') {
+            const lowerAttrName = attrName.toLowerCase();
+            console.log(lowerAttrName, expr)
+            if (lowerAttrName.startsWith('on') && typeof expr === 'function') {
                 const id = `ev-part-${partId++}`;
 
                 if (renderMode === 'client') {
@@ -182,28 +183,27 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
 
                     attrParts.push(root => {
                         // The querySelector by ID will now fail during hydration, which is expected.
-                        const selector = `[${attrName}="${id}"]`;
-                        let el = root.querySelector<HTMLElement>(selector);
+                        let el = root.querySelector<HTMLElement>(`[${lowerAttrName}="${id}"]`);
 
                         // Hydration fallback will be used.
                         if (!el) {
-                            const all = root.querySelectorAll<HTMLElement>(`[${attrName}]`);
+                            const all = root.querySelectorAll<HTMLElement>(`[${lowerAttrName}]`);
                             const mapKey = '__evIdxMap__';
                             const idxMap: Map<string, number> = ((root as any)[mapKey] ||= new Map<string, number>());
-                            const nextIdx = idxMap.get(attrName) || 0;
+                            const nextIdx = idxMap.get(lowerAttrName) || 0;
                             if (nextIdx < all.length) {
                                 el = all[nextIdx] as HTMLElement;
-                                idxMap.set(attrName, nextIdx + 1);
+                                idxMap.set(lowerAttrName, nextIdx + 1);
                             }
                         }
 
                         if (!el) return;
 
-                        const eventName = attrName.slice(2).toLowerCase();
+                        const eventName = lowerAttrName.slice(2);
                         const handler = expr as (ev: Event) => void;
 
                         el.addEventListener(eventName, handler);
-                        el.removeAttribute(attrName);
+                        el.removeAttribute(lowerAttrName); // on nettoie l'attribut
 
                         return () => {
                             el.removeEventListener(eventName, handler);
