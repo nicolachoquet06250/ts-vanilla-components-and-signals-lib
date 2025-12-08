@@ -205,16 +205,14 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
                 // are removed or altered in the consuming app.
                 if (renderMode === 'server') {
                     const evName = attrName.slice(2).toLowerCase();
-                    // Use per-event unique marker attribute to avoid duplicate attribute names on the same element
-                    // when multiple events are present (e.g., onclick + oncontextmenu)
-                    pendingAfterAttr = ` data-s-eid-${evName}="${id}"`;
+                    // Defer insertion right after the attribute's closing quote
+                    pendingAfterAttr = ` data-s-eid="${id}" data-s-ename="${evName}"`;
                 }
 
                 if (renderMode === 'client') {
                     attrParts.push(root => {
                         // 1) Primary: data markers (work even if on* attributes are stripped by SSR pipeline)
-                        const eventName = attrName.slice(2).toLowerCase(); // onClick/onclick -> click, onContextMenu -> contextmenu
-                        let el = root.querySelector<HTMLElement>(`[data-s-eid-${eventName}="${id}"]`);
+                        let el = root.querySelector<HTMLElement>(`[data-s-eid="${id}"]`);
                         
                         // 2) Exact match on inline on* placeholder
                         if (!el) {
@@ -237,13 +235,15 @@ export function html(strings: TemplateStringsArray, ...values: any[]) {
 
                         if (!el) return;
 
+                        const eventName = attrName.slice(2).toLowerCase(); // onClick/onclick -> click, onContextMenu -> contextmenu
                         const handler = expr as (ev: Event) => void;
 
                         el.addEventListener(eventName, handler);
                         // Nettoyage de l'attribut inline pour éviter tout conflit/erreur navigateur
                         try { el.removeAttribute(attrName); } catch {}
                         // Remove data markers used for hydration
-                        try { el.removeAttribute(`data-s-eid-${eventName}`); } catch {}
+                        try { el.removeAttribute('data-s-eid'); } catch {}
+                        try { el.removeAttribute('data-s-ename'); } catch {}
 
                         return () => {
                             el.removeEventListener(eventName, handler);
