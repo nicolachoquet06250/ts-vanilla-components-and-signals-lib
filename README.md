@@ -1,10 +1,37 @@
 ### Documentation complète — nc-signals-components
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/nicolachoquet06250/nc-signals-components/npm-package-deploy.yml?branch=main&style=for-the-badge&logo=github&label=nc-signals-components)
 
-[![NPM Package](https://img.shields.io/npm/v/nc-signals-components?style=for-the-badge&logo=npm&logoColor=red&label=nc-signals-components)](https://www.npmjs.com/package/nc-signals-components)
-![NPM Unpacked Size](https://img.shields.io/npm/unpacked-size/nc-signals-components?style=for-the-badge&logo=npm&logoColor=red&label=nc-signals-components)
+<table>
+  <thead>
+    <tr>
+      <th colspan="2">Badges</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GITHUB</td>
+      <td>
+        <img src="https://img.shields.io/github/actions/workflow/status/nicolachoquet06250/nc-signals-components/npm-package-deploy.yml?branch=main&style=for-the-badge&logo=github&label=nc-signals-components" alt="GitHub Actions Workflow Status">
+      </td>
+    </tr>
+    <tr>
+      <td rowspan="2">
+        NPM
+      </td>
+      <td>
+        <a href="https://www.npmjs.com/package/nc-signals-components">
+          <img src="https://img.shields.io/npm/v/nc-signals-components?style=for-the-badge&logo=npm&logoColor=red&label=nc-signals-components" alt="NPM Package">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="https://img.shields.io/npm/unpacked-size/nc-signals-components?style=for-the-badge&logo=npm&logoColor=red&label=nc-signals-components" alt="NPM Unpacked Size">
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-Dernière mise à jour: 2025-12-05 14:41
+Dernière mise à jour : 2025-12-09 14:00
 
 Cette documentation présente l’installation, le démarrage rapide (client et serveur), les conventions de composants, ainsi qu’un flux de build côté Go à partir de vos composants TypeScript via le script `ts2go`.
 
