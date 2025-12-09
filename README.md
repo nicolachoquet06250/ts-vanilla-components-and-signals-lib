@@ -44,7 +44,7 @@ Cette documentation présente l’installation, le démarrage rapide (client et 
   - [Utilisation directement dans un module sans build](#utilisation-directement-dans-un-module-sans-build)
   - [Utilisation dans le navigateur](#utilisation-dans-le-navigateur)
 - [Quickstart](#quickstart)
-  - [Rendue côté client](#rendue-côté-client)
+  - [Rendu côté client](#rendu-côté-client)
     - [Avec le plugin vite](#avec-le-plugin-vite)
     - [Sans le plugin vite](#sans-le-plugin-vite)
   - [Rendu côté serveur](#rendu-côté-serveur)
@@ -149,7 +149,7 @@ Avec Import Map dans une page HTML:
 
 ### Quickstart
 
-#### Rendue côté client
+#### Rendu côté client
 
 ##### Avec le plugin vite
 
